@@ -89,6 +89,8 @@ E2EはChromium desktop/mobileとWebKit mobile。複数browser contextで実際�
 
 `/api/health`と`/source.json`に非秘密commit/dirty/version、healthにCloudflare deployment version IDを出します。API未知routeはJSON404（SPA HTMLへ落としません）。CSP・no-referrer・no-store画像API・同一Origin制限を設定しています。Service Workerは使用せず、更新したHTMLを再取得します。
 
+静的応答には`no-transform`を付け、Cloudflare Web Analyticsの自動beacon挿入を防ぎます。CSPの外部script許可やzone全体の設定変更は不要です。公開後smokeは解析スクリプト非混入も検査します。根拠: Cloudflare公式`https://developers.cloudflare.com/web-analytics/get-started/`。
+
 不具合時はまず招待の新規共有を止め、作成者画面から自分のルームを終了します。コードの巻き戻しは、所有者確認のうえ検証済み修正/revert commitを通常pushし再デプロイします。既存Git履歴、他Worker、他DNSを削除しません。プロダクト全体の停止・custom domain削除は別途明示承認が必要です。
 
 ## 実装と検証

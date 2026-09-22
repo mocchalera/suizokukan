@@ -23,8 +23,11 @@ for (const route of ['/', '/create', '/collection', '/family', `/room/${crypto.r
   assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
   assert.match(response.headers.get('content-security-policy') || '', /frame-ancestors 'none'/);
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  assert.match(response.headers.get('cache-control') || '', /no-transform/);
   html = await response.text();
   assert.match(html, /おえかきのうみ/);
+  assert.equal(/cloudflareinsights|\/cdn-cgi\/rum|data-cf-beacon/i.test(html), false, `${route}: HTML must not inject analytics`);
+  assert.ok([...html.matchAll(/<script\b[^>]*src="([^"]+)"/g)].every(match => match[1].startsWith('/assets/')), `${route}: scripts must be first party`);
 }
 const assetPaths = [...html.matchAll(/(?:src|href)="(\/assets\/[^"?#]+)"/g)].map(match => match[1]);
 assert(assetPaths.some(filename => filename.endsWith('.js')));

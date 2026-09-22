@@ -5,7 +5,7 @@
 ## 現在の区分
 
 - 実装: ローカル・写真編集・泳ぎ・ずかん・家族ルーム・任意Jev fallbackを実装済み。
-- 公開: **この記録作成時点ではpush/deploy前。公開成功と扱わない。** 公開後の実測を追記します。
+- 公開: `https://umi.mocchalera.app`へ初回deploy済み。HTTPSと本番家族同期は確認済み。最終QAで検出した解析スクリプト自動挿入への対策を再検証中です。
 - Jev: 承認済み鍵経路を安全に確認できないため未接続。`JEV_DAILY_LIMIT=0`。プロバイダへのlive送信なし。代替プロバイダなし。
 
 ## 事前確認
@@ -70,4 +70,8 @@ Cockpit browserでlocal画面openを試みましたがscreenshotが応答しな�
 
 ## リリース証跡
 
-mainの正常push、Cloudflare本番version、HTTPS/asset/API/source一致、本番二者同期は**まだ未実施**。ローカル成功だけで完了にしません。
+- 初回tested source: `a4ea39593b55d5481c6fbaedc69ea8eb8d8b8289`。通常の`git push origin main`成功、remote main一致後に`npm run deploy`成功。
+- 初回Cloudflare version: `27e2e230-3642-435e-a1b0-c723311d0cba`。新規Worker `suizokukan` / custom domain `umi.mocchalera.app`だけを作成。プラン・既存他DNS・権限変更なし。
+- `BASE_URL=https://umi.mocchalera.app EXPECTED_COMMIT=HEAD npm run test:smoke`: 初回HTTPS/5深いURL/assets/health/API拒否/headers/source一致成功。dirty=false、Jev=fallback。
+- 同URLへの全E2E: **19成功、3失敗、2意図したskip**。本番の写真編集/保存動線と全3環境の二者ルーム同期は動作。3失敗は通常動線末尾のconsole検査で、Cloudflareが自動挿入したWeb Analytics beaconがstrict CSPで拒否されたことによります。CSPを緩めたりエラーを無視したりせず修正します。
+- 公式Web Analytics Get started/FAQ（2026-09-22確認）に従い、本プロジェクトの静的応答だけに`Cache-Control: public, no-cache, no-transform`を設定。zone設定は変更しません。smokeに`no-transform`と解析HTML非混入検査を追加。修正後の本番結果は次の記録で更新します。
