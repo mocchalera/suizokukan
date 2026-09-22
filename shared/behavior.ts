@@ -13,24 +13,37 @@ export function createSwimmer(id: string): Swimmer {
 }
 export function tickSwimmer(state: Swimmer, creature: Pick<Creature, 'swim' | 'personality'>, delta: number, event?: SeaEvent): void {
   const dt = Number.isFinite(delta) ? clamp(delta, 0, 0.05) : 0;
+  if (!dt) return;
   const speed = (0.015 + creature.personality.energy * 0.03) * (creature.swim === 'float' ? 0.35 : 1);
   state.phase += dt * (creature.swim === 'odd' ? 1.7 : 1.1);
   state.reaction = Math.max(0, state.reaction - dt * 0.4);
-  let attraction = 0;
-  if (event && event.age < 5 && (!event.id || event.id === state.id)) {
-    const distance = Math.hypot(event.x - state.x, event.y - state.y);
+  let movement = state.direction * speed * dt;
+  let interacting = false;
+  if (event && event.age < 5 && (!event.id || event.id === state.id) && (event.type !== 'bubble' || creature.personality.bubbleLove > 0)) {
+    const targetX = clamp(event.x, 0.08, 0.92); const targetY = clamp(event.y, 0.15, 0.82);
+    const offset = targetX - state.x;
+    const distance = Math.hypot(offset, targetY - state.y);
     if (event.type === 'call' || distance < 0.42) {
-      attraction = event.type === 'bubble' && creature.personality.mood === 'shy' && distance < 0.13 ? -1 : 1;
+      interacting = true;
+      let attraction = 1;
+      if (event.type === 'bubble' && creature.personality.mood === 'shy') attraction = distance < 0.13 ? -1 : distance > 0.20 ? 1 : 0;
       if (event.type === 'bubble') attraction *= creature.personality.bubbleLove;
-      state.direction = event.x > state.x ? attraction >= 0 ? 1 : -1 : attraction >= 0 ? -1 : 1;
-      state.y += (event.y - state.y) * dt * 0.4 * attraction;
+      const step = speed * dt * 1.6 * Math.abs(attraction);
+      movement = attraction < 0 ? (Math.sign(-offset) || state.direction) * step : Math.sign(offset) * Math.min(step, Math.max(0, Math.abs(offset) - 0.015));
+      state.y += (targetY - state.y) * dt * 0.4 * attraction;
       state.reaction = 1;
     }
   }
-  state.x += state.direction * speed * dt * (attraction ? 1.6 : 1);
+  if (interacting) {
+    const nextX = clamp(state.x + movement, 0.08, 0.92);
+    if (Math.abs(nextX - state.x) > 0.000001) state.direction = Math.sign(nextX - state.x);
+    state.x = nextX;
+  } else {
+    state.x += movement;
+    if (state.x > 0.92) state.direction = -1;
+    if (state.x < 0.08) state.direction = 1;
+  }
   state.y += Math.sin(state.phase + state.seed % 7) * dt * (creature.swim === 'swim' ? 0.009 : 0.025);
-  if (state.x > 0.92) state.direction = -1;
-  if (state.x < 0.08) state.direction = 1;
   state.x = clamp(state.x, 0.06, 0.94);
   state.y = clamp(state.y, 0.15, 0.82);
 }

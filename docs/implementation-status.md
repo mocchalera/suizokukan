@@ -81,3 +81,16 @@ Cockpit browserでlocal画面openを試みましたがscreenshotが応答しな�
 - 本番スクリーンショットは`test-artifacts/runtime/production-fixed`に保存。desktop共有画面とmobileホームを目視済み。秘密を表示するQR/招待パネルは撮影していません。
 - キャッシュ追補: `_headers`の重複値を避けるため`/assets/*`で`! Cache-Control`後に1年immutableを設定。HTMLはno-cache/no-transformを維持。`npm run build`とlocal `npm run test:smoke`で、ハッシュ付きJS/CSSのCache-Controlが正確に`public, max-age=31536000, immutable, no-transform`となることを確認。アプリ・APIの動作コードは上記の全本番E2E成功sourceから変更なしです。
 - 最終リリースの非秘密source/deployment情報は`/api/health`と`/source.json`にあります。追加の本番smoke・主要ブラウザ動線・二者ルーム確認の結果とremote main照合は`test-artifacts/runtime/final-release.json`へ記録します（Git自己参照を避けるため生成レシートは追跡対象外）。
+
+## 2026-09-22 操作不具合の修正
+
+- 対象: 魚が目的地の近くで左右反転を繰り返す問題と、背景除去の強さスライダーがドラッグ途中で止まる問題。既存のデータ形式・API・共有ルーム・Cloudflare設定・依存関係は変更していません。
+- 修正前の本番source `716c25d27a93ba9d91c49631a7aa8a205ebc2741`で、実Canvas描画の60フレーム中58回の連続反転と、スライダーの連続ドラッグ中断を再現。新規ブラウザ回帰試験は2失敗、行動unitは5失敗・5成功でした。ログは`test-artifacts/runtime/interaction-browser-before.log`と`interaction-behavior-before.log`。
+- 魚: 目的地直前での移動量を制限し、到着したら向きを維持。こわがりの泡との距離に安定した範囲を設け、画面端の反射との競合も防止。30/60/144fps・3泳ぎ・呼ぶ/泡/おやつ・画面端を検証。
+- スライダー: 処理中もつまみと数値は即時操作可能。画素処理は80msのdebounce、同時実行1件＋最新待機1件に限定し、古い応答でプレビューを上書きしません。範囲へ戻る際の取消、Worker異常、unmount時の破棄も検証。プレビュー確定前は次へ進めません。
+- `npm test`: **56成功 / 9ファイル**。`npm run typecheck`、`npm run build`、`npm run verify:release`: **成功**。
+- `BASE_URL=http://127.0.0.1:8788 PLAYWRIGHT_BROWSERS_PATH="$PWD/test-artifacts/runtime/browsers" E2E_ARTIFACT_DIR=test-artifacts/runtime/interaction-local-full npm run test:e2e`: **28成功 / 2意図したskip（46.8秒）**。desktop Chromium・mobile Chromium・mobile WebKit。共有ルーム試験は独立したlocal SQLite DO上で全動線を確認。
+- 新規ブラウザ試験は実Workerの応答を350ms遅らせた状態で連続往復ドラッグ、処理中の追加入力、最終値のPNG一致、同時Worker処理数1を確認。mobile ChromiumではCDPの合成タッチ操作も実施。これは実機タッチ/実機性能の検証ではありません。
+- `test-artifacts/runtime/interaction-local`のdesktop/mobile切り抜きスクリーンショットを目視。Cockpit browserではlocal画面を開き、サンプル選択と切り抜き画面への操作を確認しましたが、screenshotは応答せず、画像証跡にはPlaywrightを使用。
+- 本修正の本番確認ではHTTP smokeと共有以外の3環境E2Eを実施し、非秘密の結果・commit・Cloudflare versionを`test-artifacts/runtime/interaction-release.json`へ記録します。本番ルームの日次作成枠を不要に消費しないため、変更していないルーム試験は上記local全試験と既存本番証跡に分けます。
+- 実際の子どもの写真、物理スマートフォンのタッチ/カメラは今回も未検証。Jevは引き続き未接続fallbackです。
