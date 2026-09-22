@@ -5,7 +5,7 @@
 ## 現在の区分
 
 - 実装: ローカル・写真編集・泳ぎ・ずかん・家族ルーム・任意Jev fallbackを実装済み。
-- 公開: `https://umi.mocchalera.app`へ初回deploy済み。HTTPSと本番家族同期は確認済み。最終QAで検出した解析スクリプト自動挿入への対策を再検証中です。
+- 公開: `https://umi.mocchalera.app`へdeploy済み。本番の全E2Eはdesktop/mobile Chromium・mobile WebKitで22成功、2意図したskip。解析スクリプトの自動挿入も除去確認済みです。
 - Jev: 承認済み鍵経路を安全に確認できないため未接続。`JEV_DAILY_LIMIT=0`。プロバイダへのlive送信なし。代替プロバイダなし。
 
 ## 事前確認
@@ -73,5 +73,11 @@ Cockpit browserでlocal画面openを試みましたがscreenshotが応答しな�
 - 初回tested source: `a4ea39593b55d5481c6fbaedc69ea8eb8d8b8289`。通常の`git push origin main`成功、remote main一致後に`npm run deploy`成功。
 - 初回Cloudflare version: `27e2e230-3642-435e-a1b0-c723311d0cba`。新規Worker `suizokukan` / custom domain `umi.mocchalera.app`だけを作成。プラン・既存他DNS・権限変更なし。
 - `BASE_URL=https://umi.mocchalera.app EXPECTED_COMMIT=HEAD npm run test:smoke`: 初回HTTPS/5深いURL/assets/health/API拒否/headers/source一致成功。dirty=false、Jev=fallback。
-- 同URLへの全E2E: **19成功、3失敗、2意図したskip**。本番の写真編集/保存動線と全3環境の二者ルーム同期は動作。3失敗は通常動線末尾のconsole検査で、Cloudflareが自動挿入したWeb Analytics beaconがstrict CSPで拒否されたことによります。CSPを緩めたりエラーを無視したりせず修正します。
-- 公式Web Analytics Get started/FAQ（2026-09-22確認）に従い、本プロジェクトの静的応答だけに`Cache-Control: public, no-cache, no-transform`を設定。zone設定は変更しません。smokeに`no-transform`と解析HTML非混入検査を追加。修正後の本番結果は次の記録で更新します。
+- 初回の全E2E: **19成功、3失敗、2意図したskip**。3失敗は通常動線末尾のconsole検査で、Cloudflareが自動挿入したWeb Analytics beaconがstrict CSPで拒否されたことによります。CSPを緩めたりエラーを無視したりせず、応答側を修正しました。
+- 公式Web Analytics Get started/FAQ（2026-09-22確認）に従い、本プロジェクトの静的応答に`no-transform`を設定。zone設定は変更していません。smokeに`no-transform`・解析HTML非混入・first-party scriptの検査を追加。
+- 修正source: `a486af465b8bceb1908c18916255d1d0e2813d8b`。Cloudflare version: `b76e3eeb-954e-4ee3-b016-1a5d7ab1f6b7`。GitHub mainへの通常push後にdeployし、health/source/HEAD一致とdirty=falseを確認。
+- `BASE_URL=https://umi.mocchalera.app EXPECTED_COMMIT=HEAD npm run test:smoke`: **成功**。外部解析scriptなし、APIはJSON、静的深いURLはHTML、Jev=fallback。
+- `BASE_URL=https://umi.mocchalera.app PLAYWRIGHT_BROWSERS_PATH="$PWD/test-artifacts/runtime/browsers" E2E_ARTIFACT_DIR=test-artifacts/runtime/production-fixed npm run test:e2e`: **22成功、2意図したskip（1.3分）**。3環境の写真→誕生→保存/復元、修正/安全試験、20匹、および別context間の共有→owner ACK→双方reload→終了を本番で確認しました。console検査も成功。
+- 本番スクリーンショットは`test-artifacts/runtime/production-fixed`に保存。desktop共有画面とmobileホームを目視済み。秘密を表示するQR/招待パネルは撮影していません。
+- キャッシュ追補: `_headers`の重複値を避けるため`/assets/*`で`! Cache-Control`後に1年immutableを設定。HTMLはno-cache/no-transformを維持。`npm run build`とlocal `npm run test:smoke`で、ハッシュ付きJS/CSSのCache-Controlが正確に`public, max-age=31536000, immutable, no-transform`となることを確認。アプリ・APIの動作コードは上記の全本番E2E成功sourceから変更なしです。
+- 最終リリースの非秘密source/deployment情報は`/api/health`と`/source.json`にあります。追加の本番smoke・主要ブラウザ動線・二者ルーム確認の結果とremote main照合は`test-artifacts/runtime/final-release.json`へ記録します（Git自己参照を避けるため生成レシートは追跡対象外）。

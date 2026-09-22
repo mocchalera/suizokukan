@@ -34,7 +34,7 @@ assert(assetPaths.some(filename => filename.endsWith('.js')));
 for (const filename of new Set(assetPaths)) {
   const response = await read(filename);
   assert.equal(response.status, 200, filename);
-  assert.match(response.headers.get('cache-control') || '', /immutable/);
+  assert.equal(response.headers.get('cache-control'), 'public, max-age=31536000, immutable, no-transform');
   assert.doesNotMatch(response.headers.get('content-type') || '', /text\/html/);
 }
 const source = await (await read('/source.json')).json();
