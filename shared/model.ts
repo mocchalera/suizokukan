@@ -1,7 +1,7 @@
 export const LIMITS = {
   collection: 40, sea: 20, roomCreatures: 20, pngBytes: 180_000, pngSide: 512,
   backupBytes: 10_000_000, photoBytes: 15_000_000, photoPixels: 40_000_000,
-  roomMs: 6 * 60 * 60 * 1000, connections: 16, requestBytes: 245_000,
+  roomMs: 6 * 60 * 60 * 1000, roomPendingMs: 30_000, connections: 16, requestBytes: 245_000,
 } as const;
 
 export const SWIMS = ['swim', 'float', 'odd'] as const;

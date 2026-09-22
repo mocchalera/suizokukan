@@ -94,3 +94,30 @@ Cockpit browserでlocal画面openを試みましたがscreenshotが応答しな�
 - `test-artifacts/runtime/interaction-local`のdesktop/mobile切り抜きスクリーンショットを目視。Cockpit browserではlocal画面を開き、サンプル選択と切り抜き画面への操作を確認しましたが、screenshotは応答せず、画像証跡にはPlaywrightを使用。
 - 本修正の本番確認ではHTTP smokeと共有以外の3環境E2Eを実施し、非秘密の結果・commit・Cloudflare versionを`test-artifacts/runtime/interaction-release.json`へ記録します。本番ルームの日次作成枠を不要に消費しないため、変更していないルーム試験は上記local全試験と既存本番証跡に分けます。
 - 実際の子どもの写真、物理スマートフォンのタッチ/カメラは今回も未検証。Jevは引き続き未接続fallbackです。
+
+## 2026-09-22 独立QAの共有ルーム4件の修正
+
+- 対象sourceは `c32f673d69fec259d1c7c94b28ce8c9f01b38201`。独立QAが挙げたowner復帰、pending収束、ready ACK冪等、不正IDATの4件だけを修正。Jev設定・依存関係・ルーム作成予算・DNSは変更していません。
+- 作成者の離脱は「いったん もどる」に統一し、同じタブのsessionStorageに管理権限を保持。同じ招待の貼り付け/再入場でもownerを上書きしません。違うjoin capabilityへ権限を引き継がず、招待リンク/QRにはjoinだけを含めます。guest離脱では従来どおり端末内の招待を消します。タブを閉じた後の管理権限復旧は非対象です。
+- pendingは投稿から30秒。Durable Object alarmで失敗状態へ一回遷移し、画像と使用bytesを削除。alarmが遅延してもアクセス/ACK時に期限を判定し、期限後のreadyや再送による延長を拒否。同一IDの失敗記録はルーム終了/6時間TTL/owner削除まで保持し、20匹枠に数えます。端末の図鑑は削除しません。既存SQLite schemaをin-placeで追加移行し、capability hashとルーム期限を維持します。
+- ready ACKは `ready = 0 AND pending_until > now` の条件付きUPDATEで一回だけ遷移。更新があった場合だけready通知を送ります。
+- server側でPNGのCRC/構造に加え、native `node:zlib` の出力長上限付きinflateでIDATを検証。展開長・圧縮データ末尾・checksum・行filter・palette範囲を検査し、不正データを保存/画像配信しません。最大展開長は1,049,088 bytes。新規画像ライブラリや原画の再描画はありません。
+
+### ローカル検証
+
+- `npx wrangler dev --local --ip 127.0.0.1 --port 8787 --persist-to test-artifacts/runtime/qa-room-fixes-20260922`：隔離SQLite DO、実workerd、WebSocket/alarm。既存環境・本番counterは変更していません。
+- `npm run typecheck`、`npm test`：**成功、12ファイル83テスト**。PNG破損/膨張/512px、owner保持/不正保存値、期限境界/遅延alarm/重複投稿/遅延ACK、冪等通知、終了、旧schema移行を追加。room-state unitはNode SQLite adapterと制御時計、下記E2Eは実workerdです。
+- `BASE_URL=http://127.0.0.1:8787 PLAYWRIGHT_BROWSERS_PATH="$PWD/test-artifacts/runtime/browsers" E2E_ARTIFACT_DIR=test-artifacts/runtime/room-fixes-full npm run test:e2e`：**29成功、4意図したskip（1.4分）**。desktop Chromium・mobile Chromium・mobile WebKit。API securityと30秒待機試験はdesktopのみ実行し、他2projectで重複する4件をskip。
+- 二つの独立browser contextでcreate→join→share→owner画像準備/ready→両者reload→delete→close、作成者が一度戻った後の再入場・招待貼り付け・owner維持を確認。guest側の元データ保持、招待へowner非混入も確認。
+- host不在で実時間30秒待ち、HTTP pollingなしでalarmの失敗通知、画像GET 410、海から画像解放、reload後の失敗保持、再送で復活/重複しないことを確認。同じACKを5回送信して通知1回。CRC/IHDR/IENDが正常な7種類の壊れたIDATを実APIが400で拒否し、保存されないことを確認。
+- 未認証401、別capability/guest管理操作/別Origin403、外部URL/不正形式400、過大payload413、20匹上限/競合409も実APIで確認。前回の魚反転/スライダー回帰、図鑑/backup、20匹、camera拒否stub、Jev fallbackも成功。
+- `npm run build`、`npm run verify:release`、`npm run test:smoke`：成功。commit前のlocal healthはbase SHA + `dirty: true`であり、公開sourceの証拠とは区別します。
+- 初回の対象E2E実行は標準Playwright cacheにbrowserがなくUI試験を開始できませんでした。既存のproject内cacheを `PLAYWRIGHT_BROWSERS_PATH` で指定して再実行し、対象3件および上記全suiteが成功。追加インストールなし。
+- screenshotsは `test-artifacts/runtime/room-fixes-full`。招待/QRを閉じたdesktop owner画面とmobileサイズのpending失敗画面を目視し、Cockpit side panelでも表示。trace/video/失敗時自動screenshotは無効で、capabilityを成果物へ保存しません。
+
+### リリース境界と残る制限
+
+- 公開前read-only確認：`umi.mocchalera.app` は既存 `suizokukan` production Workerに所属。直前deploy sourceとGitHub mainは上記base SHAに一致。無関係なdomain/Workerは変更しません。
+- 今回の非秘密commit・remote main・Cloudflare version・本番smoke結果は、自己参照を避けるため生成レシート `test-artifacts/runtime/room-fixes-release.json` に記録します。リリースscriptはclean main/remote HEAD一致を必須にし、buildへcommitを注入します。
+- 本番共有試験は通常の作成枠が利用できる場合のみ実行。429なら停止し、日次上限の回避/リセットはしません。local二者E2E成功を本番成功とは扱いません。
+- 6時間TTLは制御時計でのunit検証であり、6時間の実時間待機ではありません。実機camera・物理スマホ性能・実際の子どもの絵は未検証。Jevは未接続fallbackのままです。

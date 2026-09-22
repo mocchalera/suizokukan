@@ -18,7 +18,25 @@ test('two independent devices join privately, acknowledge, reconnect and end', a
     await page.getByRole('button', { name: '▦ 家族を しょうたい', exact: true }).click();
     await expect(page.getByLabel('招待リンクのQRコード')).toBeVisible();
     const invite = await page.getByLabel('共有する招待リンク', { exact: true }).inputValue();
+    expect(invite.includes(ownerKey)).toBe(false);
+    expect([...new URLSearchParams(new URL(invite).hash.slice(1)).keys()]).toEqual(['join']);
     await page.getByRole('button', { name: '▦ 家族を しょうたい', exact: true }).click();
+    await page.getByRole('button', { name: 'いったん もどる', exact: true }).click();
+    await expect(page).toHaveURL(/\/family$/);
+    if (info.project.name === 'desktop') {
+      await page.getByText('招待リンクを はりつけて参加', { exact: true }).click();
+      await page.getByLabel('招待リンク', { exact: true }).fill(invite);
+      await page.getByRole('button', { name: 'このうみに はいる', exact: true }).click();
+    } else {
+      try { await page.goto(invite); } catch { throw new Error('Owner return navigation failed (URL redacted)'); }
+    }
+    await expect(page.getByText('● つながっているよ', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'このうみを 終了する', exact: true })).toBeVisible();
+    expect(await page.evaluate(async id => {
+      const stored = JSON.parse(sessionStorage.getItem(`umi-room:${id}`)!);
+      const response = await fetch(`/api/rooms/${id}`, { headers: { Authorization: `Bearer ${stored.owner}` } });
+      return (await response.json()).role;
+    }, roomId)).toBe('owner');
     try { await guest.goto(invite); } catch { throw new Error('Invite navigation failed (URL redacted)'); }
     await expect(guest.getByText('● つながっているよ', { exact: true })).toBeVisible();
     expect(new URL(guest.url()).hash).toBe('');

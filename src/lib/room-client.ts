@@ -5,10 +5,16 @@ import { api, messageOf } from './api';
 import { imageElement } from './images';
 
 export type RoomKeys = { join: string; owner?: string };
-export type MemberCreature = Omit<Creature, 'image'> & { ready: boolean; sender: string };
+export type MemberCreature = Omit<Creature, 'image'> & { ready: boolean; failed: boolean; sender: string };
 type Snapshot = { creatures: MemberCreature[]; expiresAt: number; role?: 'owner' | 'guest' };
 export const sessionKey = (id: string) => `umi-room:${id}`;
-export function storeRoom(id: string, keys: RoomKeys) { sessionStorage.setItem(sessionKey(id), JSON.stringify(keys)); }
+export function storeRoom(id: string, keys: RoomKeys) {
+  if (!isId(id) || !isCapability(keys.join) || (keys.owner !== undefined && !isCapability(keys.owner))) throw new Error('招待のデータがちがいます。');
+  let previous: RoomKeys | null = null;
+  try { previous = JSON.parse(sessionStorage.getItem(sessionKey(id)) ?? 'null') as RoomKeys | null; } catch {}
+  const owner = keys.owner ?? (previous?.join === keys.join && isCapability(previous.owner) ? previous.owner : undefined);
+  sessionStorage.setItem(sessionKey(id), JSON.stringify({ join: keys.join, ...(owner ? { owner } : {}) }));
+}
 export function readRoom(id: string): RoomKeys | null {
   if (!isId(id)) return null;
   const fragment = new URLSearchParams(location.hash.slice(1)); const invitation = fragment.get('join');
@@ -31,8 +37,9 @@ export function useRoom(id: string, keys: RoomKeys | null) {
     const controller = new AbortController();
     const receiveSnapshot = async (snapshot: Snapshot) => {
       const current = ++generation; setExpiresAt(snapshot.expiresAt); setMembers(snapshot.creatures);
+      const active = snapshot.creatures.filter(creature => !creature.failed);
       try {
-        const prepared = await Promise.all(snapshot.creatures.map(async creature => {
+        const prepared = await Promise.all(active.map(async creature => {
           let source = cache.current.get(creature.id);
           if (!source) {
             const response = await fetch(`/api/rooms/${id}/creatures/${creature.id}/image`, { headers, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]) });
@@ -46,10 +53,10 @@ export function useRoom(id: string, keys: RoomKeys | null) {
           return { ...creature, image: source };
         }));
         if (disposed || current !== generation) return;
-        for (const [creatureId, source] of cache.current) if (!snapshot.creatures.some(creature => creature.id === creatureId)) { URL.revokeObjectURL(source); cache.current.delete(creatureId); }
+        for (const [creatureId, source] of cache.current) if (!active.some(creature => creature.id === creatureId)) { URL.revokeObjectURL(source); cache.current.delete(creatureId); }
         setCreatures(prepared.filter((creature): creature is NonNullable<typeof creature> => !!creature));
-        if (keys.owner && socket.current?.readyState === WebSocket.OPEN) for (const creature of snapshot.creatures) if (!creature.ready) socket.current.send(JSON.stringify({ type: 'ready', id: creature.id }));
-      } catch (failure) { if (!disposed) setError(messageOf(failure)); }
+        if (keys.owner && socket.current?.readyState === WebSocket.OPEN) for (const creature of active) if (!creature.ready) socket.current.send(JSON.stringify({ type: 'ready', id: creature.id }));
+      } catch (failure) { if (!disposed && current === generation) setError(messageOf(failure)); }
     };
     const connect = async () => {
       if (disposed || closed) return;
