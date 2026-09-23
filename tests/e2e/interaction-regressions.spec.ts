@@ -101,4 +101,22 @@ test('a fish does not repeatedly mirror when it reaches a snack', async ({ page 
   await expect.poll(() => page.evaluate(() => (window as unknown as { fishFrames: unknown[] }).fishFrames.length)).toBeGreaterThanOrEqual(60);
   const directions = await page.evaluate(() => (window as unknown as { fishFrames: { direction: number }[] }).fishFrames.slice(0, 60).map(frame => frame.direction));
   expect(directions.slice(1).filter((direction, index) => direction !== directions[index]).length).toBeLessThanOrEqual(1);
+  const alternatingDirections = await page.evaluate(async () => {
+    const fishFrames = (window as unknown as { fishFrames: { horizontal: number; vertical: number; direction: number }[] }).fishFrames;
+    const sea = document.querySelector<HTMLCanvasElement>('.sea canvas')!;
+    const observed: number[] = [];
+    for (let frame = 0; frame < 60; frame++) {
+      const position = fishFrames.at(-1)!;
+      const rectangle = sea.getBoundingClientRect();
+      sea.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true,
+        clientX: rectangle.left + (position.horizontal + (frame % 2 ? 0.12 : -0.12)) * rectangle.width,
+        clientY: rectangle.top + position.vertical * rectangle.height,
+      }));
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      observed.push(fishFrames.at(-1)!.direction);
+    }
+    return observed;
+  });
+  expect(alternatingDirections.slice(1).filter((direction, index) => direction !== alternatingDirections[index]).length).toBeLessThanOrEqual(1);
 });

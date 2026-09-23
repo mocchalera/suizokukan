@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCutoutProcessor } from '../src/lib/cutout-processor';
 import type { Pixels } from '../shared/cutout';
 
-type Request = { id: number; width: number; height: number; buffer: ArrayBuffer; threshold: number; paperMode: boolean };
+type Request = { id: number; width: number; height: number; buffer: ArrayBuffer; threshold: number; paperMode: boolean; autoLighting: boolean };
 class WorkerDouble {
   onmessage: Worker['onmessage'] = null;
   onerror: Worker['onerror'] = null;
@@ -31,7 +31,7 @@ describe('cutout processing during continuous input', () => {
     vi.advanceTimersByTime(60);
     expect(worker.postMessage).toHaveBeenCalledTimes(1); expect(copy).toHaveBeenCalledTimes(1);
     const [request, transfer] = worker.postMessage.mock.calls[0];
-    expect(request.threshold).toBe(110); expect(request.paperMode).toBe(false);
+    expect(request.threshold).toBe(110); expect(request.paperMode).toBe(false); expect(request.autoLighting).toBe(true);
     expect(transfer).toEqual([request.buffer]); expect(request.buffer).not.toBe(pixels.data.buffer);
     worker.respond(request);
     expect(callbacks.onResult).toHaveBeenCalledWith(pixels); expect(callbacks.onBusy).toHaveBeenLastCalledWith(false);
@@ -53,6 +53,16 @@ describe('cutout processing during continuous input', () => {
     expect(callbacks.onResult).not.toHaveBeenCalled();
     worker.respond(latest);
     expect(callbacks.onResult).toHaveBeenCalledTimes(1); expect(callbacks.onBusy).toHaveBeenLastCalledWith(false);
+    processor.dispose();
+  });
+
+  it('keeps the newest lighting choice while the worker is busy', () => {
+    const { worker, processor } = setup();
+    processor.request(pixels, 40, false);
+    const first = worker.postMessage.mock.calls[0][0];
+    processor.request(pixels, 40, false, 0, false);
+    worker.respond(first);
+    expect(worker.postMessage.mock.calls[1][0].autoLighting).toBe(false);
     processor.dispose();
   });
 

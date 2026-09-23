@@ -20,6 +20,27 @@ describe('boundary-connected paper removal', () => {
     expect(original.data[3]).toBe(255);
   });
   it('keeps the entire paper in rescue mode', () => expect(removePaper(drawing(), 40, true).data).toEqual(drawing().data));
+  it('removes unevenly lit paper without washing out subtle lines or changing original colors', () => {
+    const width = 192; const height = 96;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let row = 0; row < height; row++) for (let column = 0; column < width; column++) {
+      const offset = (row * width + column) * 4;
+      const paper = Math.round(240 - 65 * column / (width - 1));
+      data.set([paper, paper, paper, 255], offset);
+      if (row === 10 && column >= 45 && column <= 75) data.set([paper - 25, paper - 25, paper - 25, 255], offset);
+      if (row >= 25 && row <= 70 && column >= 40 && column <= 150 && (row === 25 || row === 70 || column === 40 || column === 150)) data.set([120, 70, 50, 255], offset);
+    }
+    const original = new Uint8ClampedArray(data);
+    const adjusted = removePaper({ width, height, data }, 40);
+    const manual = removePaper({ width, height, data }, 40, false, false);
+    expect(adjusted.data[(80 * width + 180) * 4 + 3]).toBe(0);
+    expect(manual.data[(80 * width + 180) * 4 + 3]).toBe(255);
+    expect(adjusted.data[(10 * width + 60) * 4 + 3]).toBe(255);
+    expect(adjusted.data[(40 * width + 90) * 4 + 3]).toBe(255);
+    expect(adjusted.data[(25 * width + 90) * 4 + 3]).toBe(255);
+    for (let offset = 0; offset < data.length; offset++) if (offset % 4 !== 3) expect(adjusted.data[offset]).toBe(original[offset]);
+    expect(data).toEqual(original);
+  });
   it('restores exact original pixels after erasing', () => {
     const original = drawing(); const result = removePaper(original, 40);
     brushPixels(result, original, 10, 10, 2, false); expect(result.data[(10 * 20 + 10) * 4 + 3]).toBe(0);

@@ -1,7 +1,7 @@
 import type { Pixels } from '../../shared/cutout';
 
 type Result = { id: number; width: number; height: number; buffer: ArrayBuffer; error?: never } | { id: number; error: string };
-type Job = { id: number; pixels: Pixels; threshold: number; paperMode: boolean };
+type Job = { id: number; pixels: Pixels; threshold: number; paperMode: boolean; autoLighting: boolean };
 type Callbacks = { onResult: (pixels: Pixels) => void; onError: (message: string) => void; onBusy: (busy: boolean) => void };
 type CutoutWorker = Pick<Worker, 'postMessage' | 'onmessage' | 'onerror' | 'terminate'>;
 
@@ -18,7 +18,7 @@ export function createCutoutProcessor(worker: CutoutWorker, callbacks: Callbacks
     const job = pending; pending = null; active = job.id;
     try {
       const buffer = job.pixels.data.slice().buffer;
-      worker.postMessage({ id: job.id, width: job.pixels.width, height: job.pixels.height, buffer, threshold: job.threshold, paperMode: job.paperMode }, [buffer]);
+      worker.postMessage({ id: job.id, width: job.pixels.width, height: job.pixels.height, buffer, threshold: job.threshold, paperMode: job.paperMode, autoLighting: job.autoLighting }, [buffer]);
     } catch { fail(); }
   };
   worker.onmessage = event => {
@@ -34,11 +34,11 @@ export function createCutoutProcessor(worker: CutoutWorker, callbacks: Callbacks
   };
   worker.onerror = event => { event.preventDefault(); if (!disposed && !failed) fail(); };
   return {
-    request(pixels: Pixels, threshold: number, paperMode: boolean, delay = 0) {
+    request(pixels: Pixels, threshold: number, paperMode: boolean, delay = 0, autoLighting = true) {
       if (disposed) return;
       sequence++; clearPending(); callbacks.onBusy(true);
       if (failed) { fail(); return; }
-      pending = { id: sequence, pixels, threshold, paperMode };
+      pending = { id: sequence, pixels, threshold, paperMode, autoLighting };
       if (delay) timer = setTimeout(() => { timer = undefined; ready = true; flush(); }, delay);
       else { ready = true; flush(); }
     },

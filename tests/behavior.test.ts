@@ -29,6 +29,37 @@ describe('local deterministic behavior', () => {
     const before = createSwimmer('other'); const untouched = { ...before };
     tickSwimmer(before, creature(), 0, { type: 'call', id: 'fish', x: 0, y: 0, age: 0 }); expect(before).toEqual(untouched);
   });
+  it('holds its visible facing through alternating directions, then turns for sustained movement', () => {
+    const state = { ...createSwimmer('fish'), x: 0.5, y: 0.5, direction: 1, facingDirection: 1 };
+    let movementTurns = 0;
+    for (let frame = 0; frame < 60; frame++) {
+      const previousDirection = state.direction;
+      tickSwimmer(state, creature(), 1 / 60, { type: 'call', x: state.x + (frame % 2 ? 0.12 : -0.12), y: 0.5, age: 0 });
+      if (state.direction !== previousDirection) movementTurns++;
+      expect(state.facingDirection).toBe(1);
+    }
+    expect(movementTurns).toBeGreaterThan(40);
+    for (let frame = 0; frame < 30; frame++) tickSwimmer(state, creature(), 1 / 60, { type: 'call', x: 0.15, y: 0.5, age: 0 });
+    expect(state.direction).toBe(-1);
+    expect(state.facingDirection).toBe(-1);
+  });
+  it('faces the new direction after turning at the edge', () => {
+    const state = { ...createSwimmer('fish'), x: 0.919, y: 0.5, direction: 1, facingDirection: 1 };
+    for (let frame = 0; frame < 30; frame++) tickSwimmer(state, creature(), 1 / 60);
+    expect(state.direction).toBe(-1);
+    expect(state.facingDirection).toBe(-1);
+  });
+  it('limits visible turns when the target changes sides every quarter second', () => {
+    const state = { ...createSwimmer('fish'), x: 0.5, y: 0.5, direction: 1, facingDirection: 1 };
+    let visibleTurns = 0;
+    for (let frame = 0; frame < 120; frame++) {
+      const previousFacing = state.facingDirection;
+      tickSwimmer(state, creature(), 1 / 60, { type: 'call', x: frame % 30 < 15 ? 0.2 : 0.8, y: 0.5, age: 0 });
+      if (state.facingDirection !== previousFacing) visibleTurns++;
+    }
+    expect(visibleTurns).toBeGreaterThan(0);
+    expect(visibleTurns).toBeLessThanOrEqual(4);
+  });
   it.each(['food', 'call', 'bubble'] as const)('arrives at %s without flipping back and forth', type => {
     for (const frameRate of [30, 60, 144]) {
       for (const swim of ['swim', 'float', 'odd'] as const) {

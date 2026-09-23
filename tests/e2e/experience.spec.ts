@@ -62,6 +62,12 @@ test('photo errors, manual repair, original source and reduced motion', async ({
   await page.getByRole('button', { name: 'このはんいで きりぬく →' }).click();
   const next = page.getByRole('button', { name: 'このこで つづける →' });
   await expect(next).toBeEnabled();
+  const autoLighting = page.getByRole('checkbox', { name: 'かげをみて じどうで 紙をはずす' });
+  await expect(autoLighting).toBeChecked();
+  await autoLighting.uncheck();
+  await expect(next).toBeEnabled();
+  await autoLighting.check();
+  await expect(next).toBeEnabled();
   await page.locator('.cut-canvas').click({ position: { x: 70, y: 70 } });
   await page.getByRole('button', { name: 'ひとつ もどす', exact: true }).click();
   await expect(page.getByRole('button', { name: 'ひとつ もどす', exact: true })).toBeDisabled();

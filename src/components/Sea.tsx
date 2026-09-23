@@ -66,7 +66,7 @@ export function Sea({ creatures, onInteraction, remoteEvent, findId, quiet = fal
         const ratio = resource.image.naturalHeight / resource.image.naturalWidth;
         const drawWidth = ratio > 1.3 ? size * 0.72 : size; const drawHeight = Math.min(size * 1.4, drawWidth * ratio);
         context.save(); context.translate(state.x * width, state.y * height);
-        if (state.direction !== (creature.facing === 'right' ? 1 : -1)) context.scale(-1, 1);
+        if (state.facingDirection !== (creature.facing === 'right' ? 1 : -1)) context.scale(-1, 1);
         context.globalAlpha = 0.85 + depth * 0.12;
         if (creature.swim === 'odd' && !motion.matches) context.rotate(Math.sin(state.phase) * 0.055);
         const strips = 12; const sourceWidth = resource.image.naturalWidth / strips;

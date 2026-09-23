@@ -1,6 +1,6 @@
 import { clamp, type Creature } from './model';
 
-export type Swimmer = { id: string; seed: number; x: number; y: number; direction: number; phase: number; reaction: number };
+export type Swimmer = { id: string; seed: number; x: number; y: number; direction: number; facingDirection: number; turnProgress: number; turnCooldown: number; phase: number; reaction: number };
 export type SeaEvent = { x: number; y: number; type: 'bubble' | 'food' | 'call'; age: number; id?: string };
 export function hashSeed(text: string): number {
   let seed = 2166136261;
@@ -9,7 +9,8 @@ export function hashSeed(text: string): number {
 }
 export function createSwimmer(id: string): Swimmer {
   const seed = hashSeed(id);
-  return { id, seed, x: 0.15 + (seed % 701) / 1000, y: 0.18 + ((seed >>> 10) % 550) / 1000, direction: seed % 2 ? 1 : -1, phase: (seed % 628) / 100, reaction: 0 };
+  const direction = seed % 2 ? 1 : -1;
+  return { id, seed, x: 0.15 + (seed % 701) / 1000, y: 0.18 + ((seed >>> 10) % 550) / 1000, direction, facingDirection: direction, turnProgress: 0, turnCooldown: 0, phase: (seed % 628) / 100, reaction: 0 };
 }
 export function tickSwimmer(state: Swimmer, creature: Pick<Creature, 'swim' | 'personality'>, delta: number, event?: SeaEvent): void {
   const dt = Number.isFinite(delta) ? clamp(delta, 0, 0.05) : 0;
@@ -46,4 +47,14 @@ export function tickSwimmer(state: Swimmer, creature: Pick<Creature, 'swim' | 'p
   state.y += Math.sin(state.phase + state.seed % 7) * dt * (creature.swim === 'swim' ? 0.009 : 0.025);
   state.x = clamp(state.x, 0.06, 0.94);
   state.y = clamp(state.y, 0.15, 0.82);
+  state.turnCooldown = Math.max(0, state.turnCooldown - dt);
+  if (state.direction === state.facingDirection) state.turnProgress = 0;
+  else {
+    state.turnProgress += dt;
+    if (state.turnProgress >= 0.18 && state.turnCooldown === 0) {
+      state.facingDirection = state.direction;
+      state.turnProgress = 0;
+      state.turnCooldown = 0.5;
+    }
+  }
 }
