@@ -6,7 +6,7 @@
 
 - 実装: ローカル・写真編集・泳ぎ・ずかん・家族ルーム・任意Jev fallbackを実装済み。
 - 公開: `https://umi.mocchalera.app`へdeploy済み。本番の全E2Eはdesktop/mobile Chromium・mobile WebKitで22成功、2意図したskip。解析スクリプトの自動挿入も除去確認済みです。
-- Jev: 承認済み鍵経路を安全に確認できないため未接続。`JEV_DAILY_LIMIT=0`。プロバイダへのlive送信なし。代替プロバイダなし。
+- Jev: 所有者承認済みの鍵を`npx wrangler secret put JEV_API_KEY`で登録（値は記録しない）。`JEV_DAILY_LIMIT=50`（予算実装の上限50、同一IP10/UTC日）で有効化。プロバイダへのlive送信結果は下記「2026-09-24 Jev有効化」に記録。代替プロバイダなし。
 
 ## 事前確認
 
