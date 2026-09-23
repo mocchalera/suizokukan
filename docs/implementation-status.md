@@ -132,3 +132,10 @@ Cockpit browserでlocal画面openを試みましたがscreenshotが応答しな�
 - **live送信**: 本番`POST /api/personality`へ設定文「あわが好き」を送信し、`mode: "jev"`、`notice: "Jevで設定文をせいかくにしました。"`、`energy`が0.37〜0.42と毎回変化する実プロバイダ応答を確認。fallback（未接続時）ではありません。予算は8/50を消費（下記の重複実行が起因）。
 - 検証運用の自己起因トラブル: 並列ツール呼び出しの重複発行により、deployが8回・live送信が8回・smokeが8回実行された。deployは全員が同一commitで成約済み（build競合1回は失敗に終結、他7回成功、最終versionは成功分の同一source）。live消費8回は予算内。pushでは並列gitが`index.lock`競合を起こしたが、成功1回でremote main=HEADを確認。以降は単一発行に統制した。
 - 未検証: 全画面投影の**本番**E2E（ルーム作成枠を消費するため未実施。ローカル隔離環境のheadless Chromium/WebKitでのみ検証済み）、GUI実画面/実機ブラウザ操作、誕生画面経由のUI→Jev動線（API levelのliveのみ）、実機でのJev応答表示。
+
+### 同日追記: Jev予算の引き上げ
+
+- 所有者の明示承認を受けて、全体 **50→1000回/UTC日**、同一IP **10→100回/UTC日** に変更。変更箇所は `worker/budget.ts` のクランプ（Jev全体 `Math.min(1000, limit)`、IP `100`）と `wrangler.jsonc` の `JEV_DAILY_LIMIT="1000"`、`npm run types` による生成型追従、READMEの上限表・Jev節。rooms（全体40/IP12）は不変。TypeSafe従量課金に対する安全弁であり、Cloudflare側の請求上限設定は追加していない。
+- 新規 `tests/budget.test.ts`（Node SQLite adapterで `DailyBudget` DOをunit検証）: 不正kind/visitorは400、同一IPは100回目で拒否、全体は1001回目で拒否（指定limit=5000でも1000に丸め）、roomsは40/12のまま。DOテストの既存規約に従い `tsconfig.json` はexclude、`tsconfig.worker.json` はincludeに追加。
+- 検証区分: **ローカル** `npm run typecheck` 成功（DOテストをworker側へ移した初回はmain側で `cloudflare:workers` 解決不能エラーになり、exclude/include修正で解消）、`npm test` **13ファイル91成功**（新規3件含む）、`npm run build`、`npm run verify:release` 成功。**本番** は `npm run deploy` 出力の `env.JEV_DAILY_LIMIT ("1000")` 表示、`/api/health` の `commit 00e09c82bac2fbd716f97311d6e5b501bad358e6` / `dirty:false` / `jev:"available"` で確認。commit `00e09c8` を通常push（force不使用）。
+- 未実施: 100回超の実API連打による上限のlive確認（費用対効果が低く、クランプはunitで担保）。**e2eは今回未再実行**（変更はWorker予算のみでrooms定数は不変のため）。実画面・実機は未検証。前回の重複実行起因のJev消費は8/1000です。
