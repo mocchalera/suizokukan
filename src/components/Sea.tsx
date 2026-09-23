@@ -10,9 +10,13 @@ export const DEMOS: Creature[] = [
   { id: '00000000-0000-4000-8000-000000000004', name: 'もじゃ', image: '/art/odd-mint.svg', swim: 'odd', personality: PRESETS.curious, facing: 'right', createdAt: 0, inSea: true },
 ];
 type Interaction = Omit<SeaEvent, 'age'>;
-type Props = { creatures: Creature[]; onInteraction?: (event: Interaction) => void; remoteEvent?: Interaction & { sequence: number }; findId?: string; quiet?: boolean };
+type Props = { creatures: Creature[]; onInteraction?: (event: Interaction) => void; remoteEvent?: Interaction & { sequence: number }; findId?: string; quiet?: boolean; fullscreen?: boolean };
+type FullscreenDocument = Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => Promise<void> };
+type FullscreenStage = HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> };
+const fullscreenElement = () => document.fullscreenElement ?? (document as FullscreenDocument).webkitFullscreenElement ?? null;
+const fullscreenSupported = () => 'requestFullscreen' in Element.prototype || 'webkitRequestFullscreen' in Element.prototype;
 
-export function Sea({ creatures, onInteraction, remoteEvent, findId, quiet = false }: Props) {
+export function Sea({ creatures, onInteraction, remoteEvent, findId, quiet = false, fullscreen = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const creatureRef = useRef(creatures); creatureRef.current = creatures.slice(0, LIMITS.sea);
   const swimmers = useRef(new Map<string, Swimmer>());
@@ -21,6 +25,27 @@ export function Sea({ creatures, onInteraction, remoteEvent, findId, quiet = fal
   const [mode, setMode] = useState<'bubble' | 'food'>('bubble');
   const [announcement, setAnnouncement] = useState('うみを さわってみてね');
   const [loaded, setLoaded] = useState(0);
+  const stage = useRef<HTMLDivElement>(null);
+  const [full, setFull] = useState(false);
+  const fullRef = useRef(false);
+  useEffect(() => {
+    const sync = () => { const active = !!stage.current && fullscreenElement() === stage.current; fullRef.current = active; setFull(active); };
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    return () => { document.removeEventListener('fullscreenchange', sync); document.removeEventListener('webkitfullscreenchange', sync); };
+  }, []);
+  const toggleFullscreen = async () => {
+    const node = stage.current as FullscreenStage | null; if (!node) return;
+    try {
+      if (fullscreenElement() === node) {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await (document as FullscreenDocument).webkitExitFullscreen?.();
+      } else if (typeof node.requestFullscreen === 'function') await node.requestFullscreen();
+      else if (node.webkitRequestFullscreen) await node.webkitRequestFullscreen();
+      else throw new Error('fullscreen unsupported');
+      setAnnouncement(fullscreenElement() === node ? 'ぜんめんに ひらいたよ（Escキーで もどるよ）' : 'もどしたよ');
+    } catch { setAnnouncement('この画面では ぜんめんに できなかったよ'); }
+  };
   useEffect(() => {
     let disposed = false;
     const current = creatures.slice(0, LIMITS.sea);
@@ -62,7 +87,8 @@ export function Sea({ creatures, onInteraction, remoteEvent, findId, quiet = fal
         const event = [...events.current].reverse().find(item => !item.id || item.id === creature.id);
         if (!motion.matches) tickSwimmer(state, creature, delta, event);
         const depth = 0.75 + (state.seed % 4) * 0.1;
-        const size = Math.min(width < 600 ? 142 : 190, width * 0.29) * depth * (creatureRef.current.length > 12 ? 0.74 : 1);
+        const scale = fullRef.current ? 1.7 : 1;
+        const size = Math.min(width < 600 ? 142 : 190, width * 0.29) * depth * (creatureRef.current.length > 12 ? 0.74 : 1) * scale;
         const ratio = resource.image.naturalHeight / resource.image.naturalWidth;
         const drawWidth = ratio > 1.3 ? size * 0.72 : size; const drawHeight = Math.min(size * 1.4, drawWidth * ratio);
         context.save(); context.translate(state.x * width, state.y * height);
@@ -77,7 +103,7 @@ export function Sea({ creatures, onInteraction, remoteEvent, findId, quiet = fal
         }
         context.restore();
         if (state.reaction > 0.1 || (event?.id === creature.id)) {
-          context.save(); context.fillStyle = '#225c59'; context.font = '600 13px sans-serif'; context.textAlign = 'center'; context.fillText(creature.name || 'わたしのこ', state.x * width, state.y * height + drawHeight / 2 + 22); context.restore();
+          context.save(); context.fillStyle = '#225c59'; context.font = `600 ${Math.round(13 * scale)}px sans-serif`; context.textAlign = 'center'; context.fillText(creature.name || 'わたしのこ', state.x * width, state.y * height + drawHeight / 2 + Math.round(22 * scale)); context.restore();
         }
       }
       for (const event of events.current) {
@@ -102,9 +128,9 @@ export function Sea({ creatures, onInteraction, remoteEvent, findId, quiet = fal
     events.current.push({ ...event, age: 0 }); onInteraction?.(event);
     setAnnouncement(mode === 'bubble' ? 'ぷくぷく。あわが できたよ！' : 'おやつ、どうぞ！');
   };
-  return <div className={`sea ${quiet ? 'sea-preview' : ''}`} data-loaded={loaded}>
+  return <div className={`sea ${quiet ? 'sea-preview' : ''}`} ref={stage} data-loaded={loaded} data-fullscreen={full}>
     <div className="light-rays" /><div className="sand sand-back" /><div className="sea-plant plant-left" /><div className="sea-plant plant-right" /><div className="sand" />
     <canvas ref={canvasRef} aria-label="さわると あわや おやつが出るうみ" role="button" tabIndex={0} onPointerDown={event => { const rect = event.currentTarget.getBoundingClientRect(); interact((event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height); }} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); interact(0.5, 0.5); } }} />
-    {!quiet && <><div className="sea-status"><span className="status-dot" />{creatures.length}ひきの うみ</div><div className="sea-hint" aria-live="polite">{announcement}</div><div className="sea-tools" aria-label="うみのあそび"><button className={mode === 'bubble' ? 'active' : ''} aria-pressed={mode === 'bubble'} onClick={() => { setMode('bubble'); setAnnouncement('すきなところを さわってね'); }}><span>◌</span> あわ</button><button className={mode === 'food' ? 'active' : ''} aria-pressed={mode === 'food'} onClick={() => { setMode('food'); setAnnouncement('おやつを あげるところを さわってね'); }}><span>✧</span> おやつ</button></div></>}
+    {!quiet && <><div className="sea-status"><span className="status-dot" />{creatures.length}ひきの うみ</div>{fullscreen && fullscreenSupported() && <button className="sea-fullscreen" onClick={() => void toggleFullscreen()}>{full ? 'ぜんめんを とじる' : 'ぜんめんに ひらく'}</button>}<div className="sea-hint" aria-live="polite">{announcement}</div><div className="sea-tools" aria-label="うみのあそび"><button className={mode === 'bubble' ? 'active' : ''} aria-pressed={mode === 'bubble'} onClick={() => { setMode('bubble'); setAnnouncement('すきなところを さわってね'); }}><span>◌</span> あわ</button><button className={mode === 'food' ? 'active' : ''} aria-pressed={mode === 'food'} onClick={() => { setMode('food'); setAnnouncement('おやつを あげるところを さわってね'); }}><span>✧</span> おやつ</button></div></>}
   </div>;
 }

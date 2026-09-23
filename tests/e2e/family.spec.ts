@@ -56,6 +56,22 @@ test('two independent devices join privately, acknowledge, reconnect and end', a
     expect(posts).toHaveLength(1);
     expect(posts[0].includes('data:image/jpeg')).toBe(false);
     expect(Object.keys(JSON.parse(posts[0]).creature)).not.toContain('source');
+    const supportsFullscreen = await page.evaluate(() => 'requestFullscreen' in Element.prototype || 'webkitRequestFullscreen' in Element.prototype);
+    const openFullscreen = page.getByRole('button', { name: 'ぜんめんに ひらく', exact: true });
+    if (supportsFullscreen) {
+      await openFullscreen.click();
+      await expect(page.locator('.sea')).toHaveAttribute('data-fullscreen', 'true');
+      await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(true);
+      await expect(page.getByRole('button', { name: 'ぜんめんを とじる', exact: true })).toBeVisible();
+      await noOverflow(page);
+      await screen(page, `${info.project.name}-family-fullscreen`);
+      await page.getByRole('button', { name: 'ぜんめんを とじる', exact: true }).click();
+      await expect(page.locator('.sea')).toHaveAttribute('data-fullscreen', 'false');
+      await expect.poll(() => page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+      await expect(openFullscreen).toBeVisible();
+    } else {
+      await expect(openFullscreen).toHaveCount(0);
+    }
     await screen(page, `${info.project.name}-family-owner`);
     await screen(guest, `${info.project.name}-family-phone`);
     await guest.reload();

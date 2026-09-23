@@ -28,3 +28,11 @@
 .cut-canvas{display:block;width:100%;height:auto;max-height:none;object-fit:fill}
 select{font:inherit;min-height:46px;border:1px solid var(--line);border-radius:10px;background:var(--paper);padding:8px;color:var(--ink);max-width:100%}
 @media(max-width:600px){.brand small{font-size:6px}.hero-create{min-height:65px}.hero-create>span:nth-child(2){font-size:15px}.story-strip h2{font-size:13px;letter-spacing:0}.birth-welcome h2{font-size:21px;text-align:center;padding:16px}}
+.sea-fullscreen{position:absolute;right:14px;top:11px;z-index:4;min-height:44px;padding:9px 15px;font-size:13px;background:#fffefaec;border-color:#ffffffd9;border-radius:26px;box-shadow:0 4px 12px #20545c0c}
+.page .sea[data-fullscreen="true"]{width:100%;height:100dvh;max-height:none;border:0;border-radius:0;box-shadow:none}
+.page .sea[data-fullscreen="true"] .sea-status,.page .sea[data-fullscreen="true"] .sea-hint{font-size:16px}
+.page .sea[data-fullscreen="true"] .sea-hint{bottom:104px}
+.page .sea[data-fullscreen="true"] .sea-tools{bottom:34px;gap:14px}
+.page .sea[data-fullscreen="true"] .sea-tools button{min-width:150px;min-height:56px;font-size:17px}
+.page .sea[data-fullscreen="true"] .sea-fullscreen{right:22px;top:18px;min-height:52px;padding:11px 20px;font-size:16px}
+@media(max-width:600px){.page .sea[data-fullscreen="true"] .sea-tools{gap:8px}.page .sea[data-fullscreen="true"] .sea-tools button{min-width:112px;font-size:14px}.page .sea[data-fullscreen="true"] .sea-fullscreen{right:14px;top:12px;font-size:14px}}
