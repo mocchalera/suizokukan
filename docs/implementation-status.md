@@ -121,3 +121,14 @@ Cockpit browserでlocal画面openを試みましたがscreenshotが応答しな�
 - 今回の非秘密commit・remote main・Cloudflare version・本番smoke結果は、自己参照を避けるため生成レシート `test-artifacts/runtime/room-fixes-release.json` に記録します。リリースscriptはclean main/remote HEAD一致を必須にし、buildへcommitを注入します。
 - 本番共有試験は通常の作成枠が利用できる場合のみ実行。429なら停止し、日次上限の回避/リセットはしません。local二者E2E成功を本番成功とは扱いません。
 - 6時間TTLは制御時計でのunit検証であり、6時間の実時間待機ではありません。実機camera・物理スマホ性能・実際の子どもの絵は未検証。Jevは未接続fallbackのままです。
+
+## 2026-09-24 Jev有効化
+
+- 所有者の明示承認のもと、Jevを有効化。鍵の値は記録しない。Cloudflare MCPは本セッションで未設定のため、Wrangler CLIで実施した。JEVはTypeSafe公式`https://api.typesafe.ai/v1/systemone`への外部HTTP呼出であり、Cloudflare側のBYOK設定は存在しない（`worker/jev.ts`がBearerで直接呼ぶ構成）。
+- 手順: 所有者自身が`npx wrangler secret put JEV_API_KEY`で登録（`wrangler secret list`で`JEV_API_KEY`/secret_textを確認）。`wrangler.jsonc`の`JEV_DAILY_LIMIT`を`"0"`→`"50"`に変更し、`npm run types`で`worker-configuration.d.ts`のリテラル型を追従。承認が1000だったが、`worker/budget.ts`が`Math.min(50, limit)`で丸めるため実効上限は50回/UTC日・同一IP10回/UTC日。
+- ローカル検証: `npm run typecheck`成功、`npm test`**88成功**、`npm run build`成功、`npm run verify:release`成功（release-boundary passed、tracked 76）。
+- 公開: 通常の`git push origin main`（force不使用）で`73c9fdf`（共有海の全画面投影）と`3b5b78b`（Jev有効化）をpush。`npm run deploy`でsource `3b5b78b1e0daf83d83130dbd45eb300d5b78824b`、dirty=false、Cloudflare version `1b24b79a-9558-436c-a537-cc35471a8b1d`。
+- 本番確認: `/api/health`で`"jev":"available"`。`BASE_URL=https://umi.mocchalera.app EXPECTED_COMMIT=HEAD npm run test:smoke`成功（http/headers/source一致、解析非混入）。
+- **live送信**: 本番`POST /api/personality`へ設定文「あわが好き」を送信し、`mode: "jev"`、`notice: "Jevで設定文をせいかくにしました。"`、`energy`が0.37〜0.42と毎回変化する実プロバイダ応答を確認。fallback（未接続時）ではありません。予算は8/50を消費（下記の重複実行が起因）。
+- 検証運用の自己起因トラブル: 並列ツール呼び出しの重複発行により、deployが8回・live送信が8回・smokeが8回実行された。deployは全員が同一commitで成約済み（build競合1回は失敗に終結、他7回成功、最終versionは成功分の同一source）。live消費8回は予算内。pushでは並列gitが`index.lock`競合を起こしたが、成功1回でremote main=HEADを確認。以降は単一発行に統制した。
+- 未検証: 全画面投影の**本番**E2E（ルーム作成枠を消費するため未実施。ローカル隔離環境のheadless Chromium/WebKitでのみ検証済み）、GUI実画面/実機ブラウザ操作、誕生画面経由のUI→Jev動線（API levelのliveのみ）、実機でのJev応答表示。
