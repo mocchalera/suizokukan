@@ -13,5 +13,5 @@
     "types": ["vite/client", "node"]
   },
   "include": ["src", "shared", "tests", "vite.config.ts", "playwright.config.ts"],
-  "exclude": ["tests/room-state.test.ts"]
+  "exclude": ["tests/room-state.test.ts", "tests/budget.test.ts"]
 }

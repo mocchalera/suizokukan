@@ -9,5 +9,5 @@
     "noEmit": true,
     "types": ["@cloudflare/workers-types", "node"]
   },
-  "include": ["worker", "shared", "worker-configuration.d.ts", "tests/room-state.test.ts"]
+  "include": ["worker", "shared", "worker-configuration.d.ts", "tests/room-state.test.ts", "tests/budget.test.ts"]
 }
